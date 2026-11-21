@@ -1,10 +1,12 @@
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
 from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
 import os
 
 from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
+from pydantic import BaseModel, Field
 
 from udemy_langchain_course.ai_search_agent import search_internet, search_weather
 
@@ -54,18 +56,53 @@ def helloLLM():
     print(summary_response.content)
 
 
+class Source(BaseModel):
+    """
+    Represents a source of information used in the agent's response.
+    """
+    url: str = Field(description="The URL of the source")
+    title: str = Field(description="The title of the source")
+    description: str = Field(description="A brief description of the source")
+
+
+class AgentResponse(BaseModel):
+    """"
+    Represents the response from the agent, including the content and sources used.
+    """
+    content: str = Field(description="The content of the agent's response")
+    sources: list[Source] = Field(
+        description="A list of sources used in the response")
+
+
 def invoke_agent():
     """
     Invoke agent method to search for information based on a query.
     """
-    # llm = ChatOpenAI(model_name="gpt-5", temperature=0.7)
-    llm = ChatOllama(model="llama3.2", temperature=0.5)
+    llm = ChatOpenAI(model_name="gpt-5", temperature=0.7)
+    # llm = ChatOllama(model="llama3.2", temperature=0.5)
     # search = search_weather("New York")
     tools = [search_weather, search_internet]
-    agent = create_agent(model=llm, tools=tools)
+    agent = create_agent(
+        model=llm,
+        tools=tools,
+        system_prompt=(
+            "Use the search tools to answer the user's question. Once you have "
+            "the results, you must return the final answer using the "
+            "AgentResponse structured output. Put the answer in content and "
+            "include each relevant source URL, title, and description in "
+            "sources. If there are no reliable sources, use an empty sources list."
+        ),
+        response_format=ToolStrategy(AgentResponse),
+    )
     response = agent.invoke(
         {"messages": [{"role": "user", "content": "list down top three recent job openings in software companies for langchain developer in India and provide the links to apply for the same"}]})
-    print(response["messages"][-1].content)
+    structured_response = response["structured_response"]
+    if structured_response is None:
+        raise RuntimeError(
+            "The agent finished without producing an AgentResponse. "
+            "Inspect its final messages or use a model that follows tool-based structured output."
+        )
+    print(structured_response.model_dump_json(indent=2))
 
 
 if __name__ == "__main__":
