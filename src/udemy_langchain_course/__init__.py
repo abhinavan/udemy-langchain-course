@@ -4,8 +4,9 @@ from langchain.agents import create_agent
 import os
 
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 
-from udemy_langchain_course.ai_search_agent import search_weather
+from udemy_langchain_course.ai_search_agent import search_internet, search_weather
 
 load_dotenv()
 
@@ -55,14 +56,15 @@ def helloLLM():
 
 def invoke_agent():
     """
-    Invoke agent method to search for weather information based on a query.
+    Invoke agent method to search for information based on a query.
     """
-    llm = ChatOpenAI(model_name="gpt-5.4-nano", temperature=0.7)
+    # llm = ChatOpenAI(model_name="gpt-5", temperature=0.7)
+    llm = ChatOllama(model="llama3.2", temperature=0.5)
     # search = search_weather("New York")
-    tools = [search_weather]
+    tools = [search_weather, search_internet]
     agent = create_agent(model=llm, tools=tools)
     response = agent.invoke(
-        {"messages": [{"role": "user", "content": "What is the weather in New York?"}]})
+        {"messages": [{"role": "user", "content": "list down top three recent job openings in software companies for langchain developer in India and provide the links to apply for the same"}]})
     print(response["messages"][-1].content)
 
 
